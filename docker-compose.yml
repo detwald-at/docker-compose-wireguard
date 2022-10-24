@@ -2,11 +2,12 @@ version: "3.7"
 
 services:
   wireguard:
-    image: linuxserver/wireguard
-    container_name: wireguard
+    image: linuxserver/wireguard:1.0.20210914
+    container_name: $NAME
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
+    network_mode: host
     environment:
       - PUID=1000
       - PGID=1000
@@ -17,10 +18,42 @@ services:
       - PEERDNS=auto #optional
       - INTERNAL_SUBNET=172.16.13.0 #optional
     volumes:
-      - ./wireguard-config:/config
+      - ./config:/config
       - /lib/modules:/lib/modules
-    ports:
-      - 51820:51820/udp
     sysctls:
       - net.ipv4.conf.all.src_valid_mark=1
     restart: unless-stopped
+
+
+  wireguard-ui:
+    image: ngoduykhanh/wireguard-ui:0.3.7
+    container_name: ${NAME}-ui
+    cap_add:
+      - NET_ADMIN
+    network_mode: host
+    environment:
+      - SENDGRID_API_KEY
+      - EMAIL_FROM_ADDRESS
+      - EMAIL_FROM_NAME
+      - SESSION_SECRET
+      - WGUI_USERNAME=alpha
+      - WGUI_PASSWORD=this-unusual-password
+      - WG_CONF_TEMPLATE
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+    volumes:
+      - ./config:/app/db
+      - ./config:/etc/wireguard
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.$NAME.rule=Host(`$DOMAIN`) || Host(`www.$DOMAIN`)"
+      - "traefik.http.middlewares.www-redirect-$NAME.redirectregex.regex=^https://$DOMAIN/(.*)"
+      - "traefik.http.middlewares.www-redirect-$NAME.redirectregex.replacement=https://www.$DOMAIN/$${1}"
+      - "traefik.http.middlewares.www-redirect-$NAME.redirectregex.permanent=true"
+      - "traefik.http.routers.$NAME.middlewares=www-redirect-$NAME"
+      - "traefik.http.routers.$NAME.entrypoints=https"
+      - "traefik.http.routers.$NAME.tls=true"
+      - "traefik.http.routers.$NAME.tls.certresolver=letsencrypt"
+      - "traefik.http.services.$NAME.loadbalancer.server.port=5000"

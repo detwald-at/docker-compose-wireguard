@@ -17,7 +17,6 @@ services:
       - /lib/modules:/lib/modules
     restart: unless-stopped
 
-
   wireguard-ui:
     image: ngoduykhanh/wireguard-ui:0.3.7
     container_name: ${NAME}-ui
@@ -39,6 +38,7 @@ services:
     volumes:
       - ./config:/app/db
       - ./config:/etc/wireguard
+    restart: unless-stopped
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.$NAME.rule=Host(`$DOMAIN`) || Host(`www.$DOMAIN`)"
